@@ -8,13 +8,12 @@ const morgan = require('morgan');
 
 
 //Socket.io is used for real time communication between client and server.
-const { Server } = require('socket.io');
 const http = require('http');
 const server = http.createServer(app);
 
 // const io = new Server(server);
 
-//Router of the end user.
+//Router of the end user. 
 const userRoutes = require('./routes/user/user');
 const adminRoutes = require('./routes/admin/superAdmin');
 
@@ -87,9 +86,9 @@ app.use((err, req, res, next) => {
 async function startServer() {
   try {
     // Start the server
-    server.listen(3000, () => { 
+    server.listen(3000, () => {
       console.log(`Server is running on port 3000`);
-    });  
+    });
     createDatabaseConnection();
   } catch (error) {
     console.error(error);
