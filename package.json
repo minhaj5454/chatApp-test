@@ -1,0 +1,32 @@
+{
+  "name": "basic_setup",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^10.0.0",
+    "express": "^4.17.1",
+    "i18next": "^22.4.11",
+    "i18next-fs-backend": "^2.1.1",
+    "i18next-http-middleware": "^3.3.0",
+    "joi": "^17.13.3",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^5.13.2",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.6.2",
+    "nodemon": "^3.1.7",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
+    "validator": "^13.12.0"
+  }
+}
