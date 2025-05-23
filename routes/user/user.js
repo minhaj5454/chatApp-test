@@ -17,9 +17,6 @@ module.exports = async (app) => {
     app.post('/oneToOneChatHistory', authorization,userController.oneToOneChatHistory);
 app.post('/groupChatHistory',authorization, userController.groupChatHistory);
     
-// app.post('/deleteOneToOneMessage', authorization,userController.deleteOneToOneMessage);
-// app.post('/deleteGroupMessage', authorization,userController.deleteGroupMessage);
-    
 app.post("/loginUser", userController.loginUser);
 app.post("/addContact",authorization, userController.addContact);
 

@@ -53,8 +53,12 @@ module.exports = function(server) {
     socket.join(userId);
 
     socket.on('private_message', async ({ toUserId, text, mediaUrl, tempId }) => {
+      const sender = await userService.get(userId);
       const receiver = await userService.get(toUserId);
-      if (receiver.blockedUsers.includes(userId)) return;
+      if (
+    receiver.blockedUsers.includes(userId) ||
+    sender.blockedUsers.includes(toUserId)
+  ) return;
 
       try {
         const message = await Message.create({
@@ -150,8 +154,12 @@ module.exports = function(server) {
 
     socket.on('file_send', async ({ toUserId, fileName, fileData, mediaType, tempId }) => {
       try {
+      const sender = await userService.get(userId);
         const receiver = await userService.get(toUserId);
-        if (receiver.blockedUsers.includes(userId)) return;
+        if (
+    receiver.blockedUsers.includes(userId) ||
+    sender.blockedUsers.includes(toUserId)
+  ) return;
 
         const base64Data = fileData.replace(/^data:.*;base64,/, '');
         const uniqueFileName = `${Date.now()}_${fileName}`;

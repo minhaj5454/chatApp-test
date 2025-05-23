@@ -228,51 +228,6 @@ exports.groupChatHistory = async (req, res) => {
   }
 };
 
-// exports.deleteOneToOneMessage = async (req, res) => {
-//   try {
-//     const userId = req.user.id;
-//     const { messageId } = req.body;
-//     if (!messageId || !userId) {
-//       return res.status(400).send({ response: "failed", message: "content_not_empty" });
-//     }
-//     const message = await MessageService.get(messageId);
-//     if (!message) {
-//       return res.status(400).send({ response: "failed", message: "Message not found" });
-//     }
-//     if (String(message.senderId) !== String(userId)) {
-//       return res.status(400).send({ response: "failed", message: "Only sender can delete this message" });
-//     }
-//     await MessageService.findByIdAndUpdate(messageId, { isDeleted: true });
-//     return res.status(200).send({ response: "success", message: "Message deleted" });
-//   } catch (err) {
-//     return res.status(500).send({ response: "failed", message: "something_went_wrong" });
-//   }
-// };
-
-// exports.deleteGroupMessage = async (req, res) => {
-//   try {
-//     const userId = req.user.id
-//     const { groupMessageId } = req.body;
-//     if (!groupMessageId || !userId) {
-//       return res.status(400).send({ response: "failed", message: "content_not_empty" });
-//     }
-//     const message = await groupMessageService.get(groupMessageId);
-//     if (!message) {
-//       return res.status(404).send({ response: "failed", message: "Message not found" });
-//     }
-//     if (String(message.senderId) !== String(userId)) {
-//       return res.status(403).send({ response: "failed", message: "Only sender can delete this message" });
-//     }
-//     await groupMessageService.findByIdAndUpdate(groupMessageId, { isDeleted: true });
-//     return res.status(200).send({ response: "success", message: "Group message deleted" });
-//   } catch (err) {
-//     console.log("error in deleteGroupMessage", err);
-    
-//     return res.status(500).send({ response: "failed", message: "something_went_wrong" });
-//   }
-// };
-
-
 exports.addContact = async (req, res) => {
   try {
     const userId = req.user.id;
