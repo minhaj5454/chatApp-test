@@ -274,6 +274,30 @@ module.exports = function(server) {
       }
     });
 
+
+socket.on('update_group_message', async ({ groupMessageId, newText, groupId }) => {
+  try {
+    const message = await MessageGroup.findById(groupMessageId);
+    if (!message || String(message.senderId) !== String(userId)) return;
+    message.text = newText;
+    message.updatedAt = new Date();
+    await message.save();
+
+    const group = await GroupService.get(groupId);
+    if (!group) return;
+    group.members.forEach(memberId => {
+      io.to(memberId.toString()).emit('group_message_updated', {
+        groupMessageId,
+        newText,
+        updatedAt: message.updatedAt
+      });
+    });
+  } catch (err) {
+    console.error('Error updating group message:', err);
+  }
+});
+
+
     socket.on('disconnect', async () => {
       try {
         onlineUsers.delete(userId);
