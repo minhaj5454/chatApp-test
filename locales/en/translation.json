@@ -25,5 +25,7 @@
     "failed_to_create_user": "Failed to create user",
     "user_created_successfully" : "User created successfully",
     "failed_to_create_group" : "Failed to create group",
-    "group_created_successfully" : "Group created successfully"
+    "group_created_successfully" : "Group created successfully",
+    "User_blocked" : "User blocked successfully",
+    "User_unblocked" : "User unblocked successfully"
 }

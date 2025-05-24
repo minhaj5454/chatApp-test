@@ -32,9 +32,26 @@ const messageGroupSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-
+    duration: {
+      type: Number,
+    },
+    forwardedFrom: {
+        type: {
+          type: String,
+        },
+       id: {
+    type: mongoose.Schema.Types.ObjectId,
+    refPath: 'forwardedFrom.model',
   },
-  { timestamps: true }
+      },
+
+       reactions: [{
+          userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, 
+          reaction: String
+        }],
+
+
+  },{ timestamps: true }
 );
 
 const MessageGroup = mongoose.model("messagegroups", messageGroupSchema);

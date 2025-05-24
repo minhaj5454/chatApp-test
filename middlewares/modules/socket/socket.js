@@ -1,11 +1,12 @@
+const mongoose = require('mongoose'); // Add mongoose for ObjectId
 const Message = require('../../../models/message');
 const MessageGroup = require('../../../models/messageGroup');
 const jwt = require('jsonwebtoken');
 const { ACCESS_TOKEN_SECRET } = process.env;
 const fs = require('fs');
 const path = require('path');
-const oneToOneDir = path.join(__dirname, '../../../uploads/mediaFiles/oneToOne');
-const groupDir = path.join(__dirname, '../../../uploads/mediaFiles/group');
+const oneToOneDir = path.join(__dirname, '../../../Uploads/mediaFiles/oneToOne');
+const groupDir = path.join(__dirname, '../../../Uploads/mediaFiles/group');
 [oneToOneDir, groupDir].forEach(dir => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
@@ -56,9 +57,9 @@ module.exports = function(server) {
       const sender = await userService.get(userId);
       const receiver = await userService.get(toUserId);
       if (
-    receiver.blockedUsers.includes(userId) ||
-    sender.blockedUsers.includes(toUserId)
-  ) return;
+        receiver.blockedUsers.includes(userId) ||
+        sender.blockedUsers.includes(toUserId)
+      ) return;
 
       try {
         const message = await Message.create({
@@ -152,20 +153,20 @@ module.exports = function(server) {
       }
     });
 
-    socket.on('file_send', async ({ toUserId, fileName, fileData, mediaType, tempId }) => {
+    socket.on('file_send', async ({ toUserId, fileName, fileData, mediaType, tempId, duration }) => {
       try {
-      const sender = await userService.get(userId);
+        const sender = await userService.get(userId);
         const receiver = await userService.get(toUserId);
         if (
-    receiver.blockedUsers.includes(userId) ||
-    sender.blockedUsers.includes(toUserId)
-  ) return;
+          receiver.blockedUsers.includes(userId) ||
+          sender.blockedUsers.includes(toUserId)
+        ) return;
 
         const base64Data = fileData.replace(/^data:.*;base64,/, '');
         const uniqueFileName = `${Date.now()}_${fileName}`;
         const filePath = path.join(oneToOneDir, uniqueFileName);
         fs.writeFileSync(filePath, base64Data, 'base64');
-        const mediaUrl = `/uploads/mediaFiles/oneToOne/${uniqueFileName}`;
+        const mediaUrl = `/Uploads/mediaFiles/oneToOne/${uniqueFileName}`;
 
         const message = await Message.create({
           senderId: userId,
@@ -174,6 +175,7 @@ module.exports = function(server) {
           mediaUrl,
           mediaType,
           fileName,
+          duration: mediaType === 'audio' ? duration : undefined,
         });
 
         const messageData = {
@@ -181,6 +183,7 @@ module.exports = function(server) {
           mediaUrl,
           mediaType,
           fileName,
+          duration: message.duration,
           timestamp: message.createdAt,
           messageId: message._id
         };
@@ -193,7 +196,7 @@ module.exports = function(server) {
       }
     });
 
-    socket.on('group_file_send', async ({ groupId, fileName, fileData, mediaType }) => {
+    socket.on('group_file_send', async ({ groupId, fileName, fileData, mediaType, duration }) => {
       try {
         const uniqueFileName = `${Date.now()}-${fileName}`;
         const savePath = path.join(groupDir, uniqueFileName);
@@ -203,9 +206,10 @@ module.exports = function(server) {
         const message = await MessageGroup.create({
           groupId,
           senderId: userId,
-          mediaUrl: `/uploads/mediaFiles/group/${uniqueFileName}`,
+          mediaUrl: `/Uploads/mediaFiles/group/${uniqueFileName}`,
           mediaType: mediaType || "file",
           fileName: uniqueFileName,
+          duration: mediaType === 'audio' ? duration : undefined,
           readBy: [userId]
         });
 
@@ -218,9 +222,10 @@ module.exports = function(server) {
           io.to(memberId.toString()).emit('group_message', {
             groupId,
             from: userId,
-            mediaUrl: `/uploads/mediaFiles/group/${uniqueFileName}`,
+            mediaUrl: `/Uploads/mediaFiles/group/${uniqueFileName}`,
             mediaType: mediaType || "file",
             fileName: uniqueFileName,
+            duration: message.duration,
             timestamp: message.createdAt,
             messageId: message._id
           });
@@ -258,7 +263,7 @@ module.exports = function(server) {
         console.error('Error deleting group message:', err);
       }
     });
-
+    
     socket.on('update_message', async ({ messageId, newText }) => {
       try {
         const message = await Message.findById(messageId);
@@ -274,30 +279,209 @@ module.exports = function(server) {
       }
     });
 
+    socket.on('update_group_message', async ({ groupMessageId, newText, groupId }) => {
+      try {
+        const message = await MessageGroup.findById(groupMessageId);
+        if (!message || String(message.senderId) !== String(userId)) return;
+        message.text = newText;
+        message.updatedAt = new Date();
+        await message.save();
 
-socket.on('update_group_message', async ({ groupMessageId, newText, groupId }) => {
-  try {
-    const message = await MessageGroup.findById(groupMessageId);
-    if (!message || String(message.senderId) !== String(userId)) return;
-    message.text = newText;
-    message.updatedAt = new Date();
-    await message.save();
-
-    const group = await GroupService.get(groupId);
-    if (!group) return;
-    group.members.forEach(memberId => {
-      io.to(memberId.toString()).emit('group_message_updated', {
-        groupMessageId,
-        newText,
-        updatedAt: message.updatedAt
-      });
+        const group = await GroupService.get(groupId);
+        if (!group) return;
+        group.members.forEach(memberId => {
+          io.to(memberId.toString()).emit('group_message_updated', {
+            groupMessageId,
+            newText,
+            updatedAt: message.updatedAt
+          });
+        });
+      } catch (err) {
+        console.error('Error updating group message:', err);
+      }
     });
-  } catch (err) {
-    console.error('Error updating group message:', err);
-  }
-});
 
+    socket.on('forward_message', async ({ originalMessageType, originalMessageId, targetType, targetId }) => {
+      try {
+        let originalMessage;
+        if (originalMessageType === 'one2one') {
+          originalMessage = await Message.findOne({ _id: originalMessageId, isDeleted: { $ne: true } });
+          if (!originalMessage) return console.error(`Original one-to-one message not found: ${originalMessageId}`);
+          if (String(originalMessage.senderId) !== userId && String(originalMessage.receiverId) !== userId) {
+            return console.error(`User ${userId} cannot forward message ${originalMessageId}`);
+          }
+        } else if (originalMessageType === 'group') {
+          originalMessage = await MessageGroup.findOne({ _id: originalMessageId, isDeleted: { $ne: true } });
+          if (!originalMessage) return console.error(`Original group message not found: ${originalMessageId}`);
+          const group = await GroupService.get(originalMessage.groupId);
+          if (!group || !group.members.includes(userId)) {
+            return console.error(`User ${userId} not in group ${originalMessage.groupId}`);
+          }
+        } else {
+          return console.error(`Invalid originalMessageType: ${originalMessageType}`);
+        }
 
+        const newMessageData = {
+          text: originalMessage.text,
+          mediaUrl: originalMessage.mediaUrl,
+          mediaType: originalMessage.mediaType,
+          fileName: originalMessage.fileName,
+          duration: originalMessage.duration,
+          forwardedFrom: { type: originalMessageType, id: originalMessage._id },
+        };
+
+        if (targetType === 'one2one') {
+          const receiver = await userService.get(targetId);
+          if (!receiver) return console.error(`Target user not found: ${targetId}`);
+          const sender = await userService.get(userId);
+          if (receiver.blockedUsers.includes(userId) || sender.blockedUsers.includes(targetId)) {
+            return console.error(`Blocked: ${userId} cannot forward to ${targetId}`);
+          }
+
+          const newMessage = await Message.create({
+            senderId: userId,
+            receiverId: targetId,
+            chatType: 'one2one',
+            ...newMessageData,
+          });
+
+          const messageData = {
+            from: userId,
+            text: newMessage.text,
+            mediaUrl: newMessage.mediaUrl,
+            mediaType: newMessage.mediaType,
+            fileName: newMessage.fileName,
+            duration: newMessage.duration,
+            timestamp: newMessage.createdAt,
+            messageId: newMessage._id,
+            forwardedFrom: newMessage.forwardedFrom,
+          };
+          io.to(targetId).emit('private_message', messageData);
+          socket.emit('message_sent', { messageId: newMessage._id });
+        } else if (targetType === 'group') {
+          const group = await GroupService.get(targetId);
+          if (!group) return console.error(`Target group not found: ${targetId}`);
+          if (!group.members.includes(userId)) {
+            return console.error(`User ${userId} not in target group ${targetId}`);
+          }
+
+          const newMessage = await MessageGroup.create({
+            groupId: targetId,
+            senderId: userId,
+            ...newMessageData,
+          });
+
+          const messageData = {
+            groupId: targetId,
+            from: userId,
+            text: newMessage.text,
+            mediaUrl: newMessage.mediaUrl,
+            mediaType: newMessage.mediaType,
+            fileName: newMessage.fileName,
+            duration: newMessage.duration,
+            timestamp: newMessage.createdAt,
+            messageId: newMessage._id,
+            forwardedFrom: newMessage.forwardedFrom,
+          };
+          group.members.forEach(memberId => io.to(memberId.toString()).emit('group_message', messageData));
+        } else {
+          return console.error(`Invalid targetType: ${targetType}`);
+        }
+
+        console.log(`Message ${originalMessageId} forwarded by ${userId} to ${targetType} ${targetId}`);
+      } catch (err) {
+        console.error('Forward message error:', err);
+      }
+    });
+
+    // Add Reaction
+    socket.on('add_reaction', async ({ messageType, messageId, reaction }) => {
+      try {
+        let message;
+        const userObjectId = new mongoose.Types.ObjectId(userId); // Convert string userId to ObjectId
+
+        if (messageType === 'one2one') {
+          message = await Message.findById(messageId);
+          if (!message || (String(message.senderId) !== userId && String(message.receiverId) !== userId)) {
+            return console.error(`User ${userId} cannot react to message ${messageId}`);
+          }
+        } else if (messageType === 'group') {
+          message = await MessageGroup.findById(messageId);
+          if (!message) return console.error(`Group message not found: ${messageId}`);
+          const group = await GroupService.get(message.groupId);
+          if (!group || !group.members.includes(userObjectId)) {
+            return console.error(`User ${userId} not in group ${message.groupId}`);
+          }
+        } else {
+          return console.error(`Invalid messageType: ${messageType}`);
+        }
+
+        // Add or update reaction
+        const existingReactionIndex = message.reactions.findIndex(r => r.userId.equals(userObjectId));
+        if (existingReactionIndex > -1) {
+          message.reactions[existingReactionIndex].reaction = reaction;
+        } else {
+          message.reactions.push({ userId: userObjectId, reaction });
+        }
+        await message.save();
+
+        // Emit to relevant users, sending userId as string
+        if (messageType === 'one2one') {
+          io.to(message.senderId.toString()).emit('reaction_added', { messageId, userId, reaction });
+          io.to(message.receiverId.toString()).emit('reaction_added', { messageId, userId, reaction });
+        } else if (messageType === 'group') {
+          const group = await GroupService.get(message.groupId);
+          group.members.forEach(memberId => {
+            io.to(memberId.toString()).emit('group_reaction_added', { groupMessageId: messageId, userId, reaction });
+          });
+        }
+      } catch (err) {
+        console.error('Add reaction error:', err);
+      }
+    });
+
+    // Remove Reaction
+    socket.on('remove_reaction', async ({ messageType, messageId }) => {
+      try {
+        let message;
+        const userObjectId = new mongoose.Types.ObjectId(userId); // Convert string userId to ObjectId
+
+        if (messageType === 'one2one') {
+          message = await Message.findById(messageId);
+          if (!message || (String(message.senderId) !== userId && String(message.receiverId) !== userId)) {
+            return console.error(`User ${userId} cannot remove reaction from message ${messageId}`);
+          }
+        } else if (messageType === 'group') {
+          message = await MessageGroup.findById(messageId);
+          if (!message) return console.error(`Group message not found: ${messageId}`);
+          const group = await GroupService.get(message.groupId);
+          if (!group || !group.members.includes(userObjectId)) {
+            return console.error(`User ${userId} not in group ${message.groupId}`);
+          }
+        } else {
+          return console.error(`Invalid messageType: ${messageType}`);
+        }
+
+        // Remove reaction
+        message.reactions = message.reactions.filter(r => !r.userId.equals(userObjectId));
+        await message.save();
+
+        // Emit to relevant users, sending userId as string
+        if (messageType === 'one2one') {
+          io.to(message.senderId.toString()).emit('reaction_removed', { messageId, userId });
+          io.to(message.receiverId.toString()).emit('reaction_removed', { messageId, userId });
+        } else if (messageType === 'group') {
+          const group = await GroupService.get(message.groupId);
+          group.members.forEach(memberId => {
+            io.to(memberId.toString()).emit('group_reaction_removed', { groupMessageId: messageId, userId });
+          });
+        }
+      } catch (err) {
+        console.error('Remove reaction error:', err);
+      }
+    });
+
+    
     socket.on('disconnect', async () => {
       try {
         onlineUsers.delete(userId);

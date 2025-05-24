@@ -59,10 +59,10 @@ exports.createUser = async (req, res) => {
     })
 
     } catch (error) {
-        console.log(error);
+        console.log("error in create user",error);
         return res.status(500).send({
-            status: 0,
-            message: req.t('internal_server_error')
+            response: "failed",
+            message: req.t('something_went_wrong')
         });
     }
 }
@@ -80,7 +80,7 @@ exports.loginUser = async (req, res) => {
         if (!user) {
             return res.status(400).send({
                 response: "failed",
-                message: req.t('user_not_found')
+                message: req.t('invalid_credentials')
             });
         }
         const isMatch = await bcrypt.compare(password, user.password);
@@ -93,7 +93,7 @@ exports.loginUser = async (req, res) => {
         const token = jwt.sign({ id: user._id }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '12h' });
         return res.status(200).send({
             response: "success",
-            message: req.t('login_successful'),
+            message: req.t('login_successfully'),
             token,
         })
     } catch (error) {
@@ -136,7 +136,7 @@ exports.createGroup = async (req, res) => {
 
     } catch (error) {
         console.log(error);
- return res.status(500).send({ response : "failed", message: "something_went_wrong" });
+ return res.status(500).send({ response : "failed", message: req.t("something_went_wrong") });
     }
 }
 
@@ -148,22 +148,22 @@ exports.blockOrUnblockUser = async (req, res) => {
     if (!userId || !targetUserId || !action) {
       return res.status(400).send({ 
         response: "failed", 
-        message: "content_not_empty"
+        message: req.t("content_not_empty")
 
        });
     }
 
     if (action === 'block') {
       await User.findByIdAndUpdate(userId, { $addToSet: { blockedUsers: targetUserId } });
-      return res.send({ response : "success", message: "User blocked" });
+      return res.send({ response : "success", message: req.t("User_blocked") });
     } else if (action === 'unblock') {
       await User.findByIdAndUpdate(userId, { $pull: { blockedUsers: targetUserId } });
-      return res.send({ response : "success", message: "User unblocked" });
+      return res.send({ response : "success", message: req.t("User_unblocked") });
     } else {
       return res.status(400).send({ response : "failed", message: "Invalid action" });
     }
   } catch (err) {
-    return res.status(500).send({ response : "failed", message: "something_went_wrong" });
+    return res.status(500).send({ response : "failed", message: req.t("something_went_wrong") });
   }
 };
 
@@ -203,7 +203,7 @@ exports.groupChatHistory = async (req, res) => {
     // Get group details
     const group = await GroupService.get(groupId);
     if (!group) {
-      return res.status(404).send({ response: "failed", message: "Group not found" });
+      return res.status(400).send({ response: "failed", message: "Group not found" });
     }
 
     // Check if user is a member of the group
